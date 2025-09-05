@@ -1,135 +1,195 @@
 import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { CheckCircle, XCircle, Clock} from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AlertTriangle, Clock, Users, TrendingDown, CheckCircle } from 'lucide-react';
 
-interface PaymentStatusData {
-  name: string;
-  value: number;
-  percentage: number;
-  amount: number;
-  color: string;
+interface DelayData {
+  clientName: string;
+  averageDelay: number;
+  totalAmount: number;
+  invoicesCount: number;
 }
 
-interface PaymentStatusChartProps {
-  data: PaymentStatusData[];
+interface PaymentDelayChartProps {
+  data: (DelayData | null)[];
 }
 
+export default function PaymentDelayChart({ data }: PaymentDelayChartProps) {
+  const validData = data.filter(Boolean) as DelayData[];
+  
+  const chartData = validData.map(client => ({
+    name: client.clientName.length > 15 ? client.clientName.substring(0, 15) + '...' : client.clientName,
+    fullName: client.clientName,
+    delay: Math.round(client.averageDelay),
+    amount: client.totalAmount,
+    invoices: client.invoicesCount
+  }));
 
-export default function PaymentStatusChart({ data }: PaymentStatusChartProps) {
-  const total = data.reduce((sum, item) => sum + item.value, 0);
-  const totalAmount = data.reduce((sum, item) => sum + item.amount, 0);
+  const totalDelayedAmount = validData.reduce((sum, client) => sum + client.totalAmount, 0);
+  const averageDelay = validData.length > 0 ? 
+    validData.reduce((sum, client) => sum + client.averageDelay, 0) / validData.length : 0;
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
         <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-          <p className="font-medium text-gray-900 mb-2">{data.name}</p>
-          <p className="text-sm text-gray-600">Factures: {data.value}</p>
-          <p className="text-sm text-gray-600">Montant: {data.amount.toLocaleString()} MAD</p>
-          <p className="text-sm text-gray-600">Pourcentage: {data.percentage.toFixed(1)}%</p>
+          <p className="font-medium text-gray-900 mb-2">{data.fullName}</p>
+          <p className="text-sm text-red-600">Retard moyen: {data.delay} jours</p>
+          <p className="text-sm text-gray-600">Montant en retard: {data.amount.toLocaleString()} MAD</p>
+          <p className="text-sm text-gray-600">Factures: {data.invoices}</p>
         </div>
       );
     }
     return null;
   };
 
-  const getIcon = (name: string) => {
-    switch (name) {
-      case 'Payées':
-        return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case 'Non payées':
-        return <XCircle className="w-5 h-5 text-red-600" />;
-      case 'Encaissées':
-        return <Clock className="w-5 h-5 text-yellow-600" />;
-      default:
-        return null;
-    }
+  const getRiskLevel = (delay: number) => {
+    if (delay >= 60) return { level: 'Critique', color: 'text-red-600', bg: 'bg-red-100' };
+    if (delay >= 30) return { level: 'Élevé', color: 'text-orange-600', bg: 'bg-orange-100' };
+    if (delay >= 15) return { level: 'Modéré', color: 'text-yellow-600', bg: 'bg-yellow-100' };
+    return { level: 'Faible', color: 'text-green-600', bg: 'bg-green-100' };
   };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Répartition des Factures</h3>
-          <p className="text-sm text-gray-600">Statut de paiement (nombre et montant)</p>
+          <h3 className="text-lg font-semibold text-gray-900">Analyse des Retards de Paiement</h3>
+          <p className="text-sm text-gray-600">Clients avec les plus gros retards (jours)</p>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-bold text-gray-900">{total}</div>
-          <div className="text-sm text-gray-600">Total factures</div>
+        <div className="flex items-center space-x-2 text-red-600">
+          <AlertTriangle className="w-5 h-5" />
+          <span className="text-sm font-medium">Surveillance requise</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Graphique */}
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={2}
-                dataKey="value"
+      {/* Statistiques globales */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <Clock className="w-5 h-5 text-red-600" />
+            <span className="text-lg font-bold text-red-600">
+              {averageDelay.toFixed(0)}
+            </span>
+          </div>
+          <p className="text-sm text-red-700">Jours de retard moyen</p>
+        </div>
+        
+        <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <TrendingDown className="w-5 h-5 text-orange-600" />
+            <span className="text-lg font-bold text-orange-600">
+              {totalDelayedAmount.toLocaleString()}
+            </span>
+          </div>
+          <p className="text-sm text-orange-700">MAD en retard</p>
+        </div>
+        
+        <div className="text-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <Users className="w-5 h-5 text-yellow-600" />
+            <span className="text-lg font-bold text-yellow-600">{validData.length}</span>
+          </div>
+          <p className="text-sm text-yellow-700">Clients en retard</p>
+        </div>
+      </div>
+
+      {validData.length > 0 ? (
+        <>
+          {/* Graphique */}
+          <div className="h-64 mb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                <XAxis 
+                  dataKey="name"
+                  stroke="#6B7280"
+                  fontSize={11}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis 
+                  stroke="#6B7280"
+                  fontSize={12}
+                  label={{ value: 'Jours', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar 
+                  dataKey="delay"
+                  fill="#EF4444"
+                  radius={[4, 4, 0, 0]}
+                  name="Retard (jours)"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-        {/* Légende détaillée */}
-        <div className="space-y-4">
-          {data.map((item, index) => (
-            <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-              <div className="flex items-center space-x-3">
-                {getIcon(item.name)}
-                <div>
-                  <p className="font-medium text-gray-900">{item.name}</p>
-                  <p className="text-sm text-gray-600">{item.value} factures</p>
+          {/* Liste détaillée des clients en retard */}
+          <div className="space-y-3">
+            <h4 className="font-medium text-gray-900">Clients à Surveiller</h4>
+            {validData.map((client, index) => {
+              const risk = getRiskLevel(client.averageDelay);
+              
+              return (
+                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border-l-4 border-red-400">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                      <AlertTriangle className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{client.clientName}</p>
+                      <p className="text-sm text-gray-600">
+                        {client.invoicesCount} facture{client.invoicesCount > 1 ? 's' : ''} en retard
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-red-600">
+                        {Math.round(client.averageDelay)} jours
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {client.totalAmount.toLocaleString()} MAD
+                      </p>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${risk.bg} ${risk.color}`}>
+                      {risk.level}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900">
-                  {item.amount.toLocaleString()} MAD
-                </p>
-                <p className="text-sm text-gray-600">
-                  {item.percentage.toFixed(1)}%
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+              );
+            })}
+          </div>
 
-      {/* Résumé */}
-      <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <div className="text-lg font-bold text-blue-600">
-              {total > 0 ? ((data.find(d => d.name === 'Payées')?.value || 0) / total * 100).toFixed(1) : 0}%
-            </div>
-            <div className="text-xs text-blue-700">Taux de paiement</div>
+          {/* Recommandations */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <h4 className="font-medium text-amber-900 mb-2">🎯 Recommandations</h4>
+            <ul className="text-sm text-amber-800 space-y-1">
+              <li>• Contactez les clients avec plus de 30 jours de retard</li>
+              <li>• Mettez en place des relances automatiques</li>
+              <li>• Considérez des conditions de paiement plus strictes</li>
+              <li>• Proposez des facilités de paiement pour les gros montants</li>
+            </ul>
           </div>
-          <div>
-            <div className="text-lg font-bold text-indigo-600">
-              {totalAmount.toLocaleString()}
-            </div>
-            <div className="text-xs text-indigo-700">MAD Total</div>
+        </>
+      ) : (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
-          <div>
-            <div className="text-lg font-bold text-purple-600">
-              {total > 0 ? (totalAmount / total).toFixed(0) : 0}
-            </div>
-            <div className="text-xs text-purple-700">MAD Moyen/facture</div>
-          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            🎉 Excellent ! Aucun retard de paiement
+          </h3>
+          <p className="text-gray-600">
+            Tous vos clients paient dans les délais. Continuez ainsi !
+          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
